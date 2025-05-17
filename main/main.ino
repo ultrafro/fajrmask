@@ -27,6 +27,9 @@ int editIndex = 0;
 unsigned long lastButtonPress = 0;
 const unsigned long debounceDelay = 200;
 
+
+GFXcanvas16 canvas16(240, 135); //16bit
+
 String menuItems[menuSize] = {
   "Clock",
   "Alarm 1: 07:00 AM",
@@ -112,7 +115,9 @@ void setup() {
   pinMode(1, INPUT_PULLDOWN);
   pinMode(2, INPUT_PULLDOWN);
 
-  drawMenu();
+  canvas16.setTextWrap(false);
+
+  updateDisplay();
 
 
 
@@ -197,7 +202,10 @@ void loop() {
 
   if(editPressed){
     lastButtonPress = now;
-    editIndex = (editIndex + 1)%5;
+
+    int editLength = selectedIndex == 0 ? 3 : 4;
+
+    editIndex = (editIndex + 1)%editLength;
     shouldUpdateDisplay = true;
   }
 
@@ -206,13 +214,11 @@ void loop() {
   if(editIndex == 0){
     if(upPressed){
       selectedIndex = (selectedIndex - 1 + menuSize) % menuSize;
-      redrawSelected = true;
       shouldUpdateDisplay = true;
     }
 
     if(downPressed){
       selectedIndex = (selectedIndex + 1) % menuSize;
-      redrawSelected = true;
       shouldUpdateDisplay = true;
     }
   }
@@ -222,14 +228,14 @@ void loop() {
       int newHour = hours[selectedIndex] +1;
       newHour = newHour % 24;
       hours[selectedIndex] = newHour;
-      drawItem(selectedIndex);
+      shouldUpdateDisplay = true;
     }
 
     if(downPressed){
       int newHour = hours[selectedIndex] -1;
       newHour = newHour % 24;
       hours[selectedIndex] = newHour;
-      drawItem(selectedIndex);
+      shouldUpdateDisplay = true;
     }
   }
 
@@ -238,14 +244,26 @@ void loop() {
       int newMinutes = minutes[selectedIndex] +1;
       newMinutes = newMinutes % 60;
       minutes[selectedIndex] = newMinutes;
-      drawItem(selectedIndex);
+      shouldUpdateDisplay = true;
     }
 
     if(downPressed){
       int newMinutes = minutes[selectedIndex] -1;
       newMinutes = newMinutes % 60;
       minutes[selectedIndex] = newMinutes;
-      drawItem(selectedIndex);
+      shouldUpdateDisplay = true;
+    }
+  }
+
+  if(editIndex == 3){
+    if(upPressed){
+      actives[selectedIndex] = !actives[selectedIndex];
+      shouldUpdateDisplay = true;
+    }
+
+    if(downPressed){
+      actives[selectedIndex] = !actives[selectedIndex];
+      shouldUpdateDisplay = true;
     }
   }
 
@@ -280,9 +298,10 @@ void loop() {
    }    
   }
 
-  if(redrawSelected){
-    drawSelected();
+  if(shouldUpdateDisplay){
+    updateDisplay();
   }
+
 
 
 
@@ -297,7 +316,124 @@ void loop() {
   delay(10);
 }
 
+
+void updateInitialDisplay(){
+  
+  //clear the screen
+  canvas16.fillScreen(ST77XX_BLACK);
+
+  int triangleHeight = 10;
+
+  int offsetHeight = 10;
+  int offsetWidth = 10;
+
+  //draw a small green upward arrow on the top left
+  canvas16.fillTriangle(
+     offsetWidth, triangleHeight+offsetHeight,  // left point (base left)
+     triangleHeight+offsetWidth, triangleHeight+offsetHeight, // bottom point (base right)
+     triangleHeight/2+offsetWidth, offsetHeight, // right tip
+     ST77XX_BLUE // or any color you want
+  );
+
+
+  //draw a small green downward arrow in the middle left
+  canvas16.fillTriangle(
+     offsetWidth, tft.height()/2,  // left point (base left)
+     offsetWidth + triangleHeight, tft.height()/2, // bottom point (base right)
+     offsetWidth + triangleHeight/2, tft.height()/2+triangleHeight, // right tip
+     ST77XX_BLUE // or any color you want
+  );
+
+
+  //draw an edit icon on the bottom left
+  canvas16.fillTriangle(
+     offsetWidth, tft.height()-triangleHeight-offsetHeight,  // left point (base left)
+     offsetWidth, tft.height()-offsetHeight, // bottom point (base right)
+     offsetWidth + triangleHeight, tft.height()-triangleHeight/2-offsetHeight, // right tip
+     ST77XX_YELLOW // or any color you want
+  );
+
+}
+
 void updateDisplay(){
+  updateInitialDisplay();
+
+
+  //print the current time in the middle
+
+  int timeOffset = editIndex == 0 ? 60 : 60;
+  bool editingHours = editIndex == 1;
+  bool editingMinutes = editIndex == 2;
+  bool editingActive = editIndex == 3;
+
+  canvas16.setCursor(timeOffset, tft.height()/2-20);
+  canvas16.setTextColor(ST77XX_WHITE);
+  canvas16.setTextSize(4);
+
+  
+  if(editingHours){
+    canvas16.setTextColor(ST77XX_YELLOW);
+  }else{
+    canvas16.setTextColor(ST77XX_WHITE);
+  }
+
+  // Format hours with leading zero
+  if (hours[selectedIndex] < 10) {
+    canvas16.print("0");
+  }
+  canvas16.print(hours[selectedIndex]);
+
+
+  canvas16.setTextColor(ST77XX_WHITE);
+  canvas16.print(":");
+
+  if(editingMinutes){
+    canvas16.setTextColor(ST77XX_YELLOW);
+  }else{
+    canvas16.setTextColor(ST77XX_WHITE);
+  }
+  // Format minutes with leading zero
+  if (minutes[selectedIndex] < 10) {
+    canvas16.print("0");
+  }
+  canvas16.print(minutes[selectedIndex]);
+  canvas16.print(" ");
+
+
+  if(selectedIndex != 0){
+    canvas16.setTextSize(1);
+    canvas16.setCursor(timeOffset, tft.height()-30);
+    if(actives[selectedIndex]){
+      if(editingActive){
+        canvas16.setTextColor(ST77XX_YELLOW);
+      }else{
+        canvas16.setTextColor(ST77XX_GREEN);
+      }
+      canvas16.print("Active");
+    }else{
+      if(editingActive){
+        canvas16.setTextColor(ST77XX_YELLOW);
+      }else{
+        canvas16.setTextColor(ST77XX_BLUE);
+      }
+      canvas16.print("Inactive");
+    }
+  }
+
+  //print the alarm number on the bottom right (if 0, print "Clock")
+  canvas16.setCursor(timeOffset, 30);
+  canvas16.setTextColor(ST77XX_WHITE);
+  canvas16.setTextSize(1);
+  if(selectedIndex == 0){
+    canvas16.print("Clock");
+  }else{
+    canvas16.print("Alarm ");
+    canvas16.print(selectedIndex);
+  }
+
+  canvas16.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
+
+  tft.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
 
 }
 
