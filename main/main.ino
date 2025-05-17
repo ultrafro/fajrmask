@@ -23,30 +23,14 @@ uint8_t sweep[] = {1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 40, 60, 60, 40, 30, 20, 15,
 
 float p = 3.1415926;
 
-const int menuSize = 11;
+const int menuSize = 12;
 int selectedIndex = 0;
 int editIndex = 0;
 unsigned long lastButtonPress = 0;
 const unsigned long debounceDelay = 200;
 
-
-
-
 GFXcanvas16 canvas16(240, 135); //16bit
 
-String menuItems[menuSize] = {
-  "Clock",
-  "Alarm 1: 07:00 AM",
-  "Alarm 2: 08:30 AM",
-  "Alarm 3: 09:15 AM",
-  "Alarm 4: 10:00 AM",
-  "Alarm 5: 11:45 AM",
-  "Alarm 6: 01:30 PM",
-  "Alarm 7: 03:00 PM",
-  "Alarm 8: 05:00 PM",
-  "Alarm 9: 06:30 PM",
-  "Alarm 10: 08:00 PM"
-};
 
 int hours[menuSize] = {
   0,
@@ -89,6 +73,8 @@ false,
 false,
 false,
 };
+
+bool debugShowLight = false;
 
 unsigned long startTime = 0;  // Time when the device started
 unsigned long lastDisplayUpdateTime = 0;
@@ -141,64 +127,6 @@ void setup() {
 
 
 
-  // uint16_t time = millis();
-  // tft.fillScreen(ST77XX_BLACK);
-  // time = millis() - time;
-
-  //   delay(500);
-
-  //    // large block of text
-  // tft.fillScreen(ST77XX_BLACK);
-  // testdrawtext(
-  //     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur "
-  //     "adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, "
-  //     "fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor "
-  //     "neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet "
-  //     "ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a "
-  //     "tortor imperdiet posuere. ",
-  //     ST77XX_WHITE);
-  // delay(1000);
-
-  //   // tft print function!
-  // tftPrintTest();
-  // delay(4000);
-
-  // // a single pixel
-  // tft.drawPixel(tft.width() / 2, tft.height() / 2, ST77XX_GREEN);
-  // delay(500);
-
-  // // line draw test
-  // testlines(ST77XX_YELLOW);
-  // delay(500);
-
-  // // optimized lines
-  // testfastlines(ST77XX_RED, ST77XX_BLUE);
-  // delay(500);
-
-  // testdrawrects(ST77XX_GREEN);
-  // delay(500);
-
-  // testfillrects(ST77XX_YELLOW, ST77XX_MAGENTA);
-  // delay(500);
-
-  // tft.fillScreen(ST77XX_BLACK);
-  // testfillcircles(10, ST77XX_BLUE);
-  // testdrawcircles(10, ST77XX_WHITE);
-  // delay(500);
-
-  // testroundrects();
-  // delay(500);
-
-  // testtriangles();
-  // delay(500);
-
-  // mediabuttons();
-  // delay(500);
-
-  // Serial.println("done");
-  // delay(1000);
-
-
 }
 
 void loop() {
@@ -240,8 +168,14 @@ void loop() {
   if(editPressed){
     lastButtonPress = now;
 
-    int editLength = selectedIndex == 0 ? 3 : 4;
+    int editLength = 4;
+    if(selectedIndex == 0){
+      editLength = 3;
+    }
 
+    if(selectedIndex == 11){
+      editLength = 2;
+    }
     editIndex = (editIndex + 1)%editLength;
     shouldUpdateDisplay = true;
   }
@@ -271,9 +205,13 @@ void loop() {
         // When editing clock time, update the offset
         hourOffset = (hourOffset + 1) % 24;
       } else {
-        int newHour = hours[selectedIndex] + 1;
-        newHour = newHour % 24;
-        hours[selectedIndex] = newHour;
+        if(selectedIndex == menuSize-1){
+          debugShowLight = !debugShowLight;
+        }else{
+          int newHour = hours[selectedIndex] + 1;
+          newHour = newHour % 24;
+          hours[selectedIndex] = newHour;
+        }
       }
       shouldUpdateDisplay = true;
     }
@@ -283,9 +221,13 @@ void loop() {
         // When editing clock time, update the offset
         hourOffset = (hourOffset - 1 + 24) % 24;
       } else {
-        int newHour = hours[selectedIndex] - 1;
-        newHour = (newHour + 24) % 24;
-        hours[selectedIndex] = newHour;
+        if(selectedIndex == menuSize-1){
+          debugShowLight = !debugShowLight;
+        }else{
+          int newHour = hours[selectedIndex] - 1;
+          newHour = (newHour + 24) % 24;
+          hours[selectedIndex] = newHour;
+        }
       }
       shouldUpdateDisplay = true;
     }
@@ -297,9 +239,13 @@ void loop() {
         // When editing clock time, update the offset
         minuteOffset = (minuteOffset + 1) % 60;
       } else {
-        int newMinutes = minutes[selectedIndex] + 1;
-        newMinutes = newMinutes % 60;
-        minutes[selectedIndex] = newMinutes;
+        if(selectedIndex == menuSize-1){
+          debugShowLight = !debugShowLight;
+        }else{
+          int newMinutes = minutes[selectedIndex] + 1;
+          newMinutes = newMinutes % 60;
+          minutes[selectedIndex] = newMinutes;
+        }
       }
       shouldUpdateDisplay = true;
     }
@@ -309,9 +255,13 @@ void loop() {
         // When editing clock time, update the offset
         minuteOffset = (minuteOffset - 1 + 60) % 60;
       } else {
-        int newMinutes = minutes[selectedIndex] - 1;
-        newMinutes = (newMinutes + 60) % 60;
-        minutes[selectedIndex] = newMinutes;
+        if(selectedIndex == menuSize-1){
+          debugShowLight = !debugShowLight;
+        }else{
+          int newMinutes = minutes[selectedIndex] - 1;
+          newMinutes = (newMinutes + 60) % 60;
+          minutes[selectedIndex] = newMinutes;
+        }
       }
       shouldUpdateDisplay = true;
     }
@@ -344,20 +294,20 @@ void loop() {
   //   redrawSelected = true;
   // }
 
-  if(digitalRead(2) == HIGH){
+  if(debugShowLight){
     int i = 0;
     for (uint8_t x=0; x<16; x++) {
       for (uint8_t y=0; y<9; y++) {
         ledmatrix.drawPixel(x, y, i++);
-     }
-   }
+      }
+    }
   }else{
-   int i = 0;
-   for (uint8_t x=0; x<16; x++) {
-     for (uint8_t y=0; y<9; y++) {
-       ledmatrix.drawPixel(x, y, 0);
-     }
-   }    
+    int i = 0;
+    for (uint8_t x=0; x<16; x++) {
+      for (uint8_t y=0; y<9; y++) {
+        ledmatrix.drawPixel(x, y, 0);
+      }
+    }
   }
 
   if(shouldUpdateDisplay){
@@ -482,35 +432,54 @@ void updateDisplay(){
     }
     canvas16.print(currentSecond);
   } else {
-    // Display alarm time
-    if(editingHours){
-      canvas16.setTextColor(ST77XX_YELLOW);
-    }else{
+
+    if(selectedIndex == menuSize-1){
+      //display light debug mode: (you can turn on / off the light)
+      canvas16.setTextSize(1);
+      canvas16.setCursor(timeOffset, tft.height()/2+20);
       canvas16.setTextColor(ST77XX_WHITE);
-    }
 
-    if (hours[selectedIndex] < 10) {
-      canvas16.print("0");
-    }
-    canvas16.print(hours[selectedIndex]);
+      if(debugShowLight){
+        canvas16.setTextColor(ST77XX_GREEN);
+        canvas16.print("Light Debug Mode: ON");
+      }else{
+        canvas16.setTextColor(ST77XX_RED);
+        canvas16.print("Light Debug Mode: OFF");
+      }
 
-    canvas16.setTextColor(ST77XX_WHITE);
-    canvas16.print(":");
 
-    if(editingMinutes){
-      canvas16.setTextColor(ST77XX_YELLOW);
+
     }else{
+      // Display alarm time
+      if(editingHours){
+        canvas16.setTextColor(ST77XX_YELLOW);
+      }else{
+        canvas16.setTextColor(ST77XX_WHITE);
+      }
+
+      if (hours[selectedIndex] < 10) {
+        canvas16.print("0");
+      }
+      canvas16.print(hours[selectedIndex]);
+
       canvas16.setTextColor(ST77XX_WHITE);
+      canvas16.print(":");
+
+      if(editingMinutes){
+        canvas16.setTextColor(ST77XX_YELLOW);
+      }else{
+        canvas16.setTextColor(ST77XX_WHITE);
+      }
+      if (minutes[selectedIndex] < 10) {
+        canvas16.print("0");
+      }
+      canvas16.print(minutes[selectedIndex]);
+      canvas16.print(" ");
     }
-    if (minutes[selectedIndex] < 10) {
-      canvas16.print("0");
-    }
-    canvas16.print(minutes[selectedIndex]);
-    canvas16.print(" ");
   }
 
 
-  if(selectedIndex != 0){
+  if(selectedIndex != 0 && selectedIndex != menuSize-1){
     canvas16.setTextSize(1);
     canvas16.setCursor(timeOffset, tft.height()-30);
     if(actives[selectedIndex]){
@@ -537,8 +506,12 @@ void updateDisplay(){
   if(selectedIndex == 0){
     canvas16.print("Clock");
   }else{
-    canvas16.print("Alarm ");
-    canvas16.print(selectedIndex);
+    if(selectedIndex == menuSize-1){
+      canvas16.print("Light Debug Mode");
+    }else{
+      canvas16.print("Alarm ");
+      canvas16.print(selectedIndex);
+    }
   }
 
   canvas16.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
@@ -551,53 +524,69 @@ void updateDisplay(){
 
 }
 
-void drawSelected(){
-  tft.fillRect(0, 0, 20, tft.height(), ST77XX_BLACK);
 
-  int triangleHeight = 16;
-  int x0 = 0;
-  int y0 = selectedIndex*12 -6;
+void testGraphics(){
 
-  tft.fillTriangle(
-     x0, y0,              // left point (base left)
-     x0, y0 + triangleHeight, // bottom point (base right)
-     x0 + 20, y0 + triangleHeight / 2, // right tip
-     ST77XX_GREEN // or any color you want
-  );
 
-}
-
-void drawItem(int idx){
-  //fill in that section with black:
-  tft.fillRect(30, 0, 100, 12, ST77XX_BLACK);
-  tft.setTextWrap(false);
-  tft.setTextSize(1);
-  tft.setCursor(30, idx * 12); // 12 pixels per line height
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  
-  int hour = hours[idx];
-  int minute = minutes[idx];
-  char time_string[6];
-  snprintf(time_string, sizeof(time_string), "%02d:%02d", hour, minute);
-
-  tft.print(time_string);
-}
-
-void drawMenu() {
+  uint16_t time = millis();
   tft.fillScreen(ST77XX_BLACK);
-  tft.setTextWrap(false);
-  tft.setTextSize(1);
-  for (int i = 0; i < menuSize; i++) {
-    drawItem(i);
-    // tft.setCursor(30, i * 12); // 12 pixels per line height
-    // if (i == selectedIndex) {
-    //   tft.setTextColor(ST77XX_BLACK, ST77XX_WHITE); // Highlighted
-    // } else {
-    //   tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    // }
-    // tft.print(menuItems[i]);
-  }
+  time = millis() - time;
+
+    delay(500);
+
+     // large block of text
+  tft.fillScreen(ST77XX_BLACK);
+  testdrawtext(
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur "
+      "adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, "
+      "fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor "
+      "neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet "
+      "ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a "
+      "tortor imperdiet posuere. ",
+      ST77XX_WHITE);
+  delay(1000);
+
+    // tft print function!
+  tftPrintTest();
+  delay(4000);
+
+  // a single pixel
+  tft.drawPixel(tft.width() / 2, tft.height() / 2, ST77XX_GREEN);
+  delay(500);
+
+  // line draw test
+  testlines(ST77XX_YELLOW);
+  delay(500);
+
+  // optimized lines
+  testfastlines(ST77XX_RED, ST77XX_BLUE);
+  delay(500);
+
+  testdrawrects(ST77XX_GREEN);
+  delay(500);
+
+  testfillrects(ST77XX_YELLOW, ST77XX_MAGENTA);
+  delay(500);
+
+  tft.fillScreen(ST77XX_BLACK);
+  testfillcircles(10, ST77XX_BLUE);
+  testdrawcircles(10, ST77XX_WHITE);
+  delay(500);
+
+  testroundrects();
+  delay(500);
+
+  testtriangles();
+  delay(500);
+
+  mediabuttons();
+  delay(500);
+
+  Serial.println("done");
+  delay(1000);
+
 }
+
 
 
 
