@@ -4,9 +4,9 @@ Todo:
 [x] edit indicator
 [x] move alarm indicator in
 [x] move active indicator in
-[ ] add battery indicator
+[x] add battery indicator
 [ ] add section for light testing
-[ ] make time actually pass
+[x] make time actually pass
 [x] make edit for clock be different
 [ ] make alarm get triggered
 [ ] display turns off after a while

@@ -5,6 +5,7 @@
 #include <Adafruit_IS31FL3731.h>
 #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 #include <SPI.h>
+#include "Adafruit_MAX1704X.h"
 
 // If you're using the full breakout...
 //Adafruit_IS31FL3731 ledmatrix = Adafruit_IS31FL3731();
@@ -13,6 +14,7 @@ Adafruit_IS31FL3731_Wing ledmatrix = Adafruit_IS31FL3731_Wing();
 
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+Adafruit_MAX17048 lipo;
 
 
 
@@ -26,6 +28,8 @@ int selectedIndex = 0;
 int editIndex = 0;
 unsigned long lastButtonPress = 0;
 const unsigned long debounceDelay = 200;
+
+
 
 
 GFXcanvas16 canvas16(240, 135); //16bit
@@ -86,15 +90,31 @@ false,
 false,
 };
 
+unsigned long startTime = 0;  // Time when the device started
+unsigned long lastDisplayUpdateTime = 0;
+int hourOffset = 0;          // Offset to add to calculated hours
+int minuteOffset = 0;        // Offset to add to calculated minutes
+
 void setup() {
   Serial.begin(9600);
   Serial.println("ISSI swirl test");
+
+  startTime = millis();  // Record the start time
 
   if (! ledmatrix.begin()) {
     Serial.println("IS31 not found");
     while (1);
   }
   Serial.println("IS31 found!");
+
+  if (!lipo.begin()) {
+    Serial.println(F("Couldnt find Adafruit MAX17048?\nMake sure a battery is plugged in!"));
+    while (1) delay(10);
+  }
+
+  Serial.print(F("Found MAX17048"));
+  Serial.print(F(" with Chip ID: 0x")); 
+  Serial.println(lipo.getChipID(), HEX);
 
   // turn on backlite
   pinMode(TFT_BACKLITE, OUTPUT);
@@ -188,6 +208,23 @@ void loop() {
   bool redrawSelected = false;
   unsigned long now = millis();
 
+  // Calculate current time based on startup time and offsets
+  unsigned long elapsedMillis = now - startTime;
+  unsigned long totalSeconds = elapsedMillis / 1000;
+  unsigned long totalMinutes = totalSeconds / 60;
+  unsigned long totalHours = totalMinutes / 60;
+  
+  // Calculate current time with offsets
+  int currentSecond = totalSeconds % 60;
+  int currentMinute = (totalMinutes % 60 + minuteOffset) % 60;
+  int currentHour = (totalHours % 24 + hourOffset + (totalMinutes % 60 + minuteOffset) / 60) % 24;
+
+  // Update the clock time (index 0) with current time
+  if (selectedIndex == 0) {
+    hours[0] = currentHour;
+    minutes[0] = currentMinute;
+  }
+
   bool upPressed = digitalRead(0) == LOW && now - lastButtonPress>debounceDelay;
   bool downPressed = digitalRead(1) == HIGH && now - lastButtonPress>debounceDelay;
   bool editPressed = digitalRead(2) == HIGH && now - lastButtonPress>debounceDelay;
@@ -209,6 +246,11 @@ void loop() {
     shouldUpdateDisplay = true;
   }
 
+  if(now - lastDisplayUpdateTime > 1000){
+    shouldUpdateDisplay = true;
+    lastDisplayUpdateTime = now;
+  }
+
   
 
   if(editIndex == 0){
@@ -225,32 +267,52 @@ void loop() {
 
   if(editIndex == 1){
     if(upPressed){
-      int newHour = hours[selectedIndex] +1;
-      newHour = newHour % 24;
-      hours[selectedIndex] = newHour;
+      if (selectedIndex == 0) {
+        // When editing clock time, update the offset
+        hourOffset = (hourOffset + 1) % 24;
+      } else {
+        int newHour = hours[selectedIndex] + 1;
+        newHour = newHour % 24;
+        hours[selectedIndex] = newHour;
+      }
       shouldUpdateDisplay = true;
     }
 
     if(downPressed){
-      int newHour = hours[selectedIndex] -1;
-      newHour = newHour % 24;
-      hours[selectedIndex] = newHour;
+      if (selectedIndex == 0) {
+        // When editing clock time, update the offset
+        hourOffset = (hourOffset - 1 + 24) % 24;
+      } else {
+        int newHour = hours[selectedIndex] - 1;
+        newHour = (newHour + 24) % 24;
+        hours[selectedIndex] = newHour;
+      }
       shouldUpdateDisplay = true;
     }
   }
 
   if(editIndex == 2){
     if(upPressed){
-      int newMinutes = minutes[selectedIndex] +1;
-      newMinutes = newMinutes % 60;
-      minutes[selectedIndex] = newMinutes;
+      if (selectedIndex == 0) {
+        // When editing clock time, update the offset
+        minuteOffset = (minuteOffset + 1) % 60;
+      } else {
+        int newMinutes = minutes[selectedIndex] + 1;
+        newMinutes = newMinutes % 60;
+        minutes[selectedIndex] = newMinutes;
+      }
       shouldUpdateDisplay = true;
     }
 
     if(downPressed){
-      int newMinutes = minutes[selectedIndex] -1;
-      newMinutes = newMinutes % 60;
-      minutes[selectedIndex] = newMinutes;
+      if (selectedIndex == 0) {
+        // When editing clock time, update the offset
+        minuteOffset = (minuteOffset - 1 + 60) % 60;
+      } else {
+        int newMinutes = minutes[selectedIndex] - 1;
+        newMinutes = (newMinutes + 60) % 60;
+        minutes[selectedIndex] = newMinutes;
+      }
       shouldUpdateDisplay = true;
     }
   }
@@ -350,7 +412,7 @@ void updateInitialDisplay(){
      offsetWidth, tft.height()-triangleHeight-offsetHeight,  // left point (base left)
      offsetWidth, tft.height()-offsetHeight, // bottom point (base right)
      offsetWidth + triangleHeight, tft.height()-triangleHeight/2-offsetHeight, // right tip
-     ST77XX_YELLOW // or any color you want
+     editIndex == 0 ? ST77XX_BLUE : ST77XX_YELLOW // or any color you want
   );
 
 }
@@ -371,33 +433,81 @@ void updateDisplay(){
   canvas16.setTextSize(4);
 
   
-  if(editingHours){
-    canvas16.setTextColor(ST77XX_YELLOW);
-  }else{
+  if(selectedIndex == 0) {
+    // Display current time for clock
+    if(editingHours){
+      canvas16.setTextColor(ST77XX_YELLOW);
+    }else{
+      canvas16.setTextColor(ST77XX_WHITE);
+    }
+
+    // Calculate current time for display
+    unsigned long now = millis();
+    unsigned long elapsedMillis = now - startTime;
+    unsigned long totalSeconds = elapsedMillis / 1000;
+    unsigned long totalMinutes = totalSeconds / 60;
+    unsigned long totalHours = totalMinutes / 60;
+    
+    int currentSecond = totalSeconds % 60;
+    int currentMinute = (totalMinutes % 60 + minuteOffset) % 60;
+    int currentHour = (totalHours % 24 + hourOffset + (totalMinutes % 60 + minuteOffset) / 60) % 24;
+
+    // Format hours with leading zero
+    if (currentHour < 10) {
+      canvas16.print("0");
+    }
+    canvas16.print(currentHour);
+
     canvas16.setTextColor(ST77XX_WHITE);
-  }
+    canvas16.print(":");
 
-  // Format hours with leading zero
-  if (hours[selectedIndex] < 10) {
-    canvas16.print("0");
-  }
-  canvas16.print(hours[selectedIndex]);
+    if(editingMinutes){
+      canvas16.setTextColor(ST77XX_YELLOW);
+    }else{
+      canvas16.setTextColor(ST77XX_WHITE);
+    }
+    // Format minutes with leading zero
+    if (currentMinute < 10) {
+      canvas16.print("0");
+    }
+    canvas16.print(currentMinute);
+    canvas16.print(" ");
 
-
-  canvas16.setTextColor(ST77XX_WHITE);
-  canvas16.print(":");
-
-  if(editingMinutes){
-    canvas16.setTextColor(ST77XX_YELLOW);
-  }else{
+    // Add seconds display
+    canvas16.setTextSize(2);
+    canvas16.setCursor(timeOffset, tft.height()/2+20);
     canvas16.setTextColor(ST77XX_WHITE);
+    if (currentSecond < 10) {
+      canvas16.print("0");
+    }
+    canvas16.print(currentSecond);
+  } else {
+    // Display alarm time
+    if(editingHours){
+      canvas16.setTextColor(ST77XX_YELLOW);
+    }else{
+      canvas16.setTextColor(ST77XX_WHITE);
+    }
+
+    if (hours[selectedIndex] < 10) {
+      canvas16.print("0");
+    }
+    canvas16.print(hours[selectedIndex]);
+
+    canvas16.setTextColor(ST77XX_WHITE);
+    canvas16.print(":");
+
+    if(editingMinutes){
+      canvas16.setTextColor(ST77XX_YELLOW);
+    }else{
+      canvas16.setTextColor(ST77XX_WHITE);
+    }
+    if (minutes[selectedIndex] < 10) {
+      canvas16.print("0");
+    }
+    canvas16.print(minutes[selectedIndex]);
+    canvas16.print(" ");
   }
-  // Format minutes with leading zero
-  if (minutes[selectedIndex] < 10) {
-    canvas16.print("0");
-  }
-  canvas16.print(minutes[selectedIndex]);
-  canvas16.print(" ");
 
 
   if(selectedIndex != 0){
@@ -432,6 +542,10 @@ void updateDisplay(){
   }
 
   canvas16.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
+
+  float voltage = lipo.cellVoltage();
+  float percentage = lipo.cellPercent();
+  drawBatteryIndicator(voltage, percentage);
 
   tft.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
 
@@ -679,4 +793,39 @@ void mediabuttons() {
   tft.fillRoundRect(69, 78, 20, 45, 5, ST77XX_RED);
   // play color
   tft.fillTriangle(42, 12, 42, 60, 90, 40, ST77XX_GREEN);
+}
+
+void drawBatteryIndicator(float voltage, float percentage) {
+  // Battery icon dimensions
+  const int batteryWidth = 30;
+  const int batteryHeight = 15;
+  const int batteryX = canvas16.width() - batteryWidth - 10; // 10px from right edge
+  const int batteryY = 10; // 10px from top
+  
+  // Draw battery outline
+  canvas16.drawRect(batteryX, batteryY, batteryWidth, batteryHeight, ST77XX_WHITE);
+  canvas16.drawRect(batteryX + batteryWidth, batteryY + 3, 3, batteryHeight - 6, ST77XX_WHITE);
+  
+  // Calculate fill width based on percentage
+  int fillWidth = (batteryWidth - 2) * (percentage / 100.0);
+  
+  // Choose color based on battery level
+  uint16_t fillColor;
+  if (percentage > 50) {
+    fillColor = ST77XX_GREEN;
+  } else if (percentage > 20) {
+    fillColor = ST77XX_YELLOW;
+  } else {
+    fillColor = ST77XX_RED;
+  }
+  
+  // Draw battery fill
+  canvas16.fillRect(batteryX + 1, batteryY + 1, fillWidth, batteryHeight - 2, fillColor);
+  
+  // Draw percentage text
+  canvas16.setTextSize(1);
+  canvas16.setCursor(batteryX - 25, batteryY + 4);
+  canvas16.setTextColor(ST77XX_WHITE);
+  canvas16.print((int)percentage);
+  canvas16.print("%");
 }
