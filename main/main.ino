@@ -177,8 +177,16 @@ void loop() {
     if(selectedIndex == 11){
       editLength = 2;
     }
+    
+    int lastEditIndex = editIndex;    
     editIndex = (editIndex + 1)%editLength;
     shouldUpdateDisplay = true;
+
+    if(selectedIndex == menuSize-1 && lastEditIndex == 1 && editIndex == 0){
+      ShutOffLights();
+    }
+
+
   }
 
   if(now - lastDisplayUpdateTime > 1000){
@@ -207,12 +215,8 @@ void loop() {
         hourOffset = (hourOffset + 1) % 24;
       } else {
         if(selectedIndex == menuSize-1){
-          if(debugShowLight){
-            ShutOffLights(); 
-          }else{
-            lightTurnOnTime = millis();
-          }
-          debugShowLight = !debugShowLight;
+          TriggerLight();
+
         }else{
           int newHour = hours[selectedIndex] + 1;
           newHour = newHour % 24;
@@ -228,7 +232,7 @@ void loop() {
         hourOffset = (hourOffset - 1 + 24) % 24;
       } else {
         if(selectedIndex == menuSize-1){
-          debugShowLight = !debugShowLight;
+          TriggerLight();
         }else{
           int newHour = hours[selectedIndex] - 1;
           newHour = (newHour + 24) % 24;
@@ -288,22 +292,7 @@ void loop() {
 
 
 
-  // if (digitalRead(0) == LOW && now - lastButtonPress > debounceDelay) {
-  //   selectedIndex = (selectedIndex - 1 + menuSize) % menuSize;
-  //   lastButtonPress = now;
-  //   redrawSelected = true;
-  // }
-
-  // if (digitalRead(1) == HIGH && now - lastButtonPress > debounceDelay) {
-  //   selectedIndex = (selectedIndex + 1) % menuSize;
-  //   lastButtonPress = now;
-  //   redrawSelected = true;
-  // }
-
-  if(debugShowLight){
-    UpdateLights();
-    
-  }
+  UpdateLights();
   
 
   if(shouldUpdateDisplay){
@@ -311,29 +300,50 @@ void loop() {
   }
 
 
+  //trigger light if the hour and minut match an active alarm
+  bool anyLightTriggered = false;
+  for(int i = 0; i < menuSize; i++){
+    if(i == 0 || i == menuSize-1){
+      continue;
+    }
 
+    if(actives[i]){
+      if(hours[i] == currentHour && minutes[i] == currentMinute){
+        TriggerLight();
+      }
+    }
+  }
 
+  
 
-
-
-  // // animate over all the pixels, and set the brightness from the sweep table
-  // for (uint8_t incr = 0; incr < 24; incr++)
-  //   for (uint8_t x = 0; x < 16; x++)
-  //     for (uint8_t y = 0; y < 9; y++)
-  //       ledmatrix.drawPixel(x, y, sweep[(x+y+incr)%24]);
   delay(10);
+}
+
+void TriggerLight(){
+  lightTurnOnTime = millis();
 }
 
 
 
 void UpdateLights(){
+  unsigned long now = millis();
+  unsigned long timeSinceLightTurnOn = now - lightTurnOnTime;
+
+  int lightDuration = 3000;
+  int lightStartPeriod = 1000;
+  int lightEndPeriod = 100;
+  
+
+  if(timeSinceLightTurnOn > lightDuration){
+    ShutOffLights();
+    return;
+  }
 
   //make value a sine wave of low frequency for first 10 seconds
   // then make it a high frequency sine wave for the next 10 seconds
 
-  unsigned long now = millis();
   float period = 1000;
-  if(now - lightTurnOnTime < 3000){
+  if(timeSinceLightTurnOn < lightDuration/2){
     //low frequency sine wave
     period = 1000;
   }else{
@@ -343,7 +353,7 @@ void UpdateLights(){
 
   float pi = 3.1415926;
 
-  float value = 0.5 + 0.5 * sin(now * 2 * pi / period);
+  float value = 0.5 + 0.5 * sin(timeSinceLightTurnOn * 2 * pi / period);
 
   int lightValue = (int)(value * 255);
 
@@ -353,13 +363,6 @@ void UpdateLights(){
     }
   }
 
-
-  //if it's been more than 10 seconds, turn off the lights and set debugShowLight to false
-  if(now - lightTurnOnTime > 10000){
-    ShutOffLights();
-    debugShowLight = false;
-    updateDisplay();
-  }
 }
 
 void ShutOffLights(){
@@ -369,6 +372,8 @@ void ShutOffLights(){
       ledmatrix.drawPixel(x, y, 0);
     }
   }
+
+
 }
 
 
@@ -482,15 +487,8 @@ void updateDisplay(){
       canvas16.setCursor(timeOffset, tft.height()/2+20);
       canvas16.setTextColor(ST77XX_WHITE);
 
-      if(debugShowLight){
-        canvas16.setTextColor(ST77XX_GREEN);
-        canvas16.print("Light Debug Mode: ON");
-      }else{
-        canvas16.setTextColor(ST77XX_RED);
-        canvas16.print("Light Debug Mode: OFF");
-      }
-
-
+      canvas16.setTextColor(ST77XX_GREEN);
+      canvas16.print("Press up or down to trigger light");
 
     }else{
       // Display alarm time
