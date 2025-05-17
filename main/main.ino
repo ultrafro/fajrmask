@@ -78,6 +78,7 @@ bool debugShowLight = false;
 
 unsigned long startTime = 0;  // Time when the device started
 unsigned long lastDisplayUpdateTime = 0;
+unsigned long lightTurnOnTime = 0;
 int hourOffset = 0;          // Offset to add to calculated hours
 int minuteOffset = 0;        // Offset to add to calculated minutes
 
@@ -206,6 +207,11 @@ void loop() {
         hourOffset = (hourOffset + 1) % 24;
       } else {
         if(selectedIndex == menuSize-1){
+          if(debugShowLight){
+            ShutOffLights(); 
+          }else{
+            lightTurnOnTime = millis();
+          }
           debugShowLight = !debugShowLight;
         }else{
           int newHour = hours[selectedIndex] + 1;
@@ -295,20 +301,10 @@ void loop() {
   // }
 
   if(debugShowLight){
-    int i = 0;
-    for (uint8_t x=0; x<16; x++) {
-      for (uint8_t y=0; y<9; y++) {
-        ledmatrix.drawPixel(x, y, i++);
-      }
-    }
-  }else{
-    int i = 0;
-    for (uint8_t x=0; x<16; x++) {
-      for (uint8_t y=0; y<9; y++) {
-        ledmatrix.drawPixel(x, y, 0);
-      }
-    }
+    UpdateLights();
+    
   }
+  
 
   if(shouldUpdateDisplay){
     updateDisplay();
@@ -326,6 +322,53 @@ void loop() {
   //     for (uint8_t y = 0; y < 9; y++)
   //       ledmatrix.drawPixel(x, y, sweep[(x+y+incr)%24]);
   delay(10);
+}
+
+
+
+void UpdateLights(){
+
+  //make value a sine wave of low frequency for first 10 seconds
+  // then make it a high frequency sine wave for the next 10 seconds
+
+  unsigned long now = millis();
+  float period = 1000;
+  if(now - lightTurnOnTime < 3000){
+    //low frequency sine wave
+    period = 1000;
+  }else{
+    //high frequency sine wave
+    period = 100;
+  }
+
+  float pi = 3.1415926;
+
+  float value = 0.5 + 0.5 * sin(now * 2 * pi / period);
+
+  int lightValue = (int)(value * 255);
+
+  for (uint8_t x=0; x<16; x++) {
+    for (uint8_t y=0; y<9; y++) {
+      ledmatrix.drawPixel(x, y, lightValue);
+    }
+  }
+
+
+  //if it's been more than 10 seconds, turn off the lights and set debugShowLight to false
+  if(now - lightTurnOnTime > 10000){
+    ShutOffLights();
+    debugShowLight = false;
+    updateDisplay();
+  }
+}
+
+void ShutOffLights(){
+  int i = 0;
+  for (uint8_t x=0; x<16; x++) {
+    for (uint8_t y=0; y<9; y++) {
+      ledmatrix.drawPixel(x, y, 0);
+    }
+  }
 }
 
 
