@@ -9,6 +9,6 @@ Todo:
 [x] make time actually pass
 [x] make edit for clock be different
 [x] light patterns
-[ ] make alarm get triggered
+[x] make alarm get triggered
 [ ] display turns off after a while
 [ ] cool background

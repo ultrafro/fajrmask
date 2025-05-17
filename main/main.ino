@@ -79,8 +79,15 @@ bool debugShowLight = false;
 unsigned long startTime = 0;  // Time when the device started
 unsigned long lastDisplayUpdateTime = 0;
 unsigned long lightTurnOnTime = 0;
+unsigned long lastInteractionTime = 0;
 int hourOffset = 0;          // Offset to add to calculated hours
 int minuteOffset = 0;        // Offset to add to calculated minutes
+bool isAsleep = false;
+bool haveLightsEverBeenOn = false;
+
+int currentHour = 0;
+int currentMinute = 0;
+int currentSecond = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -144,9 +151,9 @@ void loop() {
   unsigned long totalHours = totalMinutes / 60;
   
   // Calculate current time with offsets
-  int currentSecond = totalSeconds % 60;
-  int currentMinute = (totalMinutes % 60 + minuteOffset) % 60;
-  int currentHour = (totalHours % 24 + hourOffset + (totalMinutes % 60 + minuteOffset) / 60) % 24;
+  currentSecond = totalSeconds % 60;
+  currentMinute = (totalMinutes % 60 + minuteOffset) % 60;
+  currentHour = (totalHours % 24 + hourOffset + (totalMinutes % 60 + minuteOffset) / 60) % 24;
 
   // Update the clock time (index 0) with current time
   if (selectedIndex == 0) {
@@ -158,17 +165,27 @@ void loop() {
   bool downPressed = digitalRead(1) == HIGH && now - lastButtonPress>debounceDelay;
   bool editPressed = digitalRead(2) == HIGH && now - lastButtonPress>debounceDelay;
 
-  if(upPressed){
+  if(upPressed || downPressed || editPressed){
     lastButtonPress = now;
+    lastInteractionTime = now;
   }
 
-  if(downPressed){
-    lastButtonPress = now;
+  HandleAlarm();
+
+  bool shouldSleep = now - lastInteractionTime > 5000;
+  if(shouldSleep && !isAsleep){
+    isAsleep = true;
+    GoToSleep();
+    return;
+  }
+
+  if(!shouldSleep && isAsleep){
+    isAsleep = false;
+    WakeUp();
+    return;
   }
 
   if(editPressed){
-    lastButtonPress = now;
-
     int editLength = 4;
     if(selectedIndex == 0){
       editLength = 3;
@@ -185,8 +202,6 @@ void loop() {
     if(selectedIndex == menuSize-1 && lastEditIndex == 1 && editIndex == 0){
       ShutOffLights();
     }
-
-
   }
 
   if(now - lastDisplayUpdateTime > 1000){
@@ -300,6 +315,30 @@ void loop() {
   }
 
 
+
+
+  
+
+  delay(10);
+}
+
+void GoToSleep(){
+
+  //turn off backlight
+  pinMode(TFT_BACKLITE, OUTPUT);
+  digitalWrite(TFT_BACKLITE, LOW);
+
+  ShutOffLights();
+}
+
+void WakeUp(){
+
+  //turn on backlight
+  pinMode(TFT_BACKLITE, OUTPUT);
+  digitalWrite(TFT_BACKLITE, HIGH);
+}
+
+void HandleAlarm(){
   //trigger light if the hour and minut match an active alarm
   bool anyLightTriggered = false;
   for(int i = 0; i < menuSize; i++){
@@ -313,19 +352,21 @@ void loop() {
       }
     }
   }
-
-  
-
-  delay(10);
 }
 
 void TriggerLight(){
   lightTurnOnTime = millis();
+  lastInteractionTime = millis();
+  haveLightsEverBeenOn = true;
 }
 
 
 
 void UpdateLights(){
+  if(!haveLightsEverBeenOn){
+    return;
+  }
+
   unsigned long now = millis();
   unsigned long timeSinceLightTurnOn = now - lightTurnOnTime;
 
@@ -446,9 +487,9 @@ void updateDisplay(){
     unsigned long totalMinutes = totalSeconds / 60;
     unsigned long totalHours = totalMinutes / 60;
     
-    int currentSecond = totalSeconds % 60;
-    int currentMinute = (totalMinutes % 60 + minuteOffset) % 60;
-    int currentHour = (totalHours % 24 + hourOffset + (totalMinutes % 60 + minuteOffset) / 60) % 24;
+    currentSecond = totalSeconds % 60;
+    currentMinute = (totalMinutes % 60 + minuteOffset) % 60;
+    currentHour = (totalHours % 24 + hourOffset + (totalMinutes % 60 + minuteOffset) / 60) % 24;
 
     // Format hours with leading zero
     if (currentHour < 10) {
