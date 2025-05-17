@@ -10,5 +10,5 @@ Todo:
 [x] make edit for clock be different
 [x] light patterns
 [x] make alarm get triggered
-[ ] display turns off after a while
+[x] display turns off after a while
 [ ] cool background
