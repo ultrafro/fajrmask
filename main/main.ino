@@ -16,7 +16,7 @@ Adafruit_IS31FL3731_Wing ledmatrix = Adafruit_IS31FL3731_Wing();
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 Adafruit_MAX17048 lipo;
 
-
+const unsigned long SLEEP_TIME = 45000;
 
 // The lookup table to make the brightness changes be more visible
 uint8_t sweep[] = {1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 40, 60, 60, 40, 30, 20, 15, 10, 8, 6, 4, 3, 2, 1};
@@ -172,7 +172,7 @@ void loop() {
 
   HandleAlarm();
 
-  bool shouldSleep = now - lastInteractionTime > 5000;
+  bool shouldSleep = now - lastInteractionTime > SLEEP_TIME;
   if(shouldSleep && !isAsleep){
     isAsleep = true;
     GoToSleep();
@@ -182,6 +182,12 @@ void loop() {
   if(!shouldSleep && isAsleep){
     isAsleep = false;
     WakeUp();
+    return;
+  }
+
+  if(isAsleep){
+    //sleep for 200ms
+    delay(200);
     return;
   }
 
@@ -230,7 +236,7 @@ void loop() {
         hourOffset = (hourOffset + 1) % 24;
       } else {
         if(selectedIndex == menuSize-1){
-          TriggerLight();
+          TriggerLight(true);
 
         }else{
           int newHour = hours[selectedIndex] + 1;
@@ -247,7 +253,7 @@ void loop() {
         hourOffset = (hourOffset - 1 + 24) % 24;
       } else {
         if(selectedIndex == menuSize-1){
-          TriggerLight();
+          TriggerLight(true);
         }else{
           int newHour = hours[selectedIndex] - 1;
           newHour = (newHour + 24) % 24;
@@ -348,31 +354,41 @@ void HandleAlarm(){
 
     if(actives[i]){
       if(hours[i] == currentHour && minutes[i] == currentMinute){
-        TriggerLight();
+        TriggerLight(false);
       }
     }
   }
 }
 
-void TriggerLight(){
-  lightTurnOnTime = millis();
-  lastInteractionTime = millis();
-  haveLightsEverBeenOn = true;
-}
 
+unsigned long lastAnimationTime = 0;
+void TriggerLight(bool force){
+
+  lastInteractionTime = millis();
+  
+  unsigned long now = millis();
+  unsigned long timeSinceLastAnimation = now - lastAnimationTime;
+  if(!haveLightsEverBeenOn || timeSinceLastAnimation > 60000 || force){
+    lightTurnOnTime = millis();
+    lastAnimationTime = now;
+    haveLightsEverBeenOn = true;
+  }
+
+}
 
 
 void UpdateLights(){
   if(!haveLightsEverBeenOn){
     return;
   }
-
   unsigned long now = millis();
   unsigned long timeSinceLightTurnOn = now - lightTurnOnTime;
 
-  int lightDuration = 3000;
+
+
+  int lightDuration = 40000;
   int lightStartPeriod = 1000;
-  int lightEndPeriod = 100;
+  int lightEndPeriod = 500;
   
 
   if(timeSinceLightTurnOn > lightDuration){
@@ -386,10 +402,10 @@ void UpdateLights(){
   float period = 1000;
   if(timeSinceLightTurnOn < lightDuration/2){
     //low frequency sine wave
-    period = 1000;
+    period = lightStartPeriod;
   }else{
     //high frequency sine wave
-    period = 100;
+    period = lightEndPeriod;
   }
 
   float pi = 3.1415926;
@@ -419,45 +435,78 @@ void ShutOffLights(){
 
 
 void updateInitialDisplay(){
-  
   //clear the screen
-  canvas16.fillScreen(ST77XX_BLACK);
+  canvas16.fillScreen(0xFD20);  // Desert sand color
 
+  // Define border colors
+  uint16_t borderBrown = 0x8200;  // Dark brown
+  uint16_t borderGreen = 0x0400;  // Dark green
+
+  // Draw a simple border pattern
+  int borderWidth = 4;
+  
+  // Top border
+  for(int i = 0; i < canvas16.width(); i += 8) {
+    canvas16.fillRect(i, 0, 4, borderWidth, borderBrown);
+    canvas16.fillRect(i + 4, 0, 4, borderWidth, borderGreen);
+  }
+  
+  // Bottom border
+  for(int i = 0; i < canvas16.width(); i += 8) {
+    canvas16.fillRect(i, canvas16.height() - borderWidth, 4, borderWidth, borderBrown);
+    canvas16.fillRect(i + 4, canvas16.height() - borderWidth, 4, borderWidth, borderGreen);
+  }
+  
+  // Left border
+  for(int i = 0; i < canvas16.height(); i += 8) {
+    canvas16.fillRect(0, i, borderWidth, 4, borderBrown);
+    canvas16.fillRect(0, i + 4, borderWidth, 4, borderGreen);
+  }
+  
+  // Right border
+  for(int i = 0; i < canvas16.height(); i += 8) {
+    canvas16.fillRect(canvas16.width() - borderWidth, i, 4, borderWidth, borderBrown);
+    canvas16.fillRect(canvas16.width() - borderWidth, i + 4, 4, borderWidth, borderGreen);
+  }
+
+  // Draw navigation arrows with high contrast
   int triangleHeight = 10;
-
   int offsetHeight = 10;
   int offsetWidth = 10;
 
-  //draw a small green upward arrow on the top left
+  // Up arrow
   canvas16.fillTriangle(
-     offsetWidth, triangleHeight+offsetHeight,  // left point (base left)
-     triangleHeight+offsetWidth, triangleHeight+offsetHeight, // bottom point (base right)
-     triangleHeight/2+offsetWidth, offsetHeight, // right tip
-     ST77XX_BLUE // or any color you want
+    offsetWidth, triangleHeight + offsetHeight,
+    triangleHeight + offsetWidth, triangleHeight + offsetHeight,
+    triangleHeight/2 + offsetWidth, offsetHeight,
+    ST77XX_WHITE
   );
 
-
-  //draw a small green downward arrow in the middle left
+  // Down arrow
   canvas16.fillTriangle(
-     offsetWidth, tft.height()/2,  // left point (base left)
-     offsetWidth + triangleHeight, tft.height()/2, // bottom point (base right)
-     offsetWidth + triangleHeight/2, tft.height()/2+triangleHeight, // right tip
-     ST77XX_BLUE // or any color you want
+    offsetWidth, tft.height()/2,
+    offsetWidth + triangleHeight, tft.height()/2,
+    offsetWidth + triangleHeight/2, tft.height()/2 + triangleHeight,
+    ST77XX_WHITE
   );
 
-
-  //draw an edit icon on the bottom left
+  // Edit arrow
   canvas16.fillTriangle(
-     offsetWidth, tft.height()-triangleHeight-offsetHeight,  // left point (base left)
-     offsetWidth, tft.height()-offsetHeight, // bottom point (base right)
-     offsetWidth + triangleHeight, tft.height()-triangleHeight/2-offsetHeight, // right tip
-     editIndex == 0 ? ST77XX_BLUE : ST77XX_YELLOW // or any color you want
+    offsetWidth, tft.height() - triangleHeight - offsetHeight,
+    offsetWidth, tft.height() - offsetHeight,
+    offsetWidth + triangleHeight, tft.height() - triangleHeight/2 - offsetHeight,
+    editIndex == 0 ? ST77XX_WHITE : ST77XX_YELLOW
   );
-
 }
 
+
+unsigned long lastBatteryCheckTime = 0;
+float lastBatteryVoltage = 0;
+float lastBatteryPercentage = 0;
 void updateDisplay(){
   updateInitialDisplay();
+
+  unsigned long now = millis();
 
 
   //print the current time in the middle
@@ -529,7 +578,7 @@ void updateDisplay(){
       canvas16.setTextColor(ST77XX_WHITE);
 
       canvas16.setTextColor(ST77XX_GREEN);
-      canvas16.print("Press up or down to trigger light");
+      canvas16.print("Press up or down to trigger");
 
     }else{
       // Display alarm time
@@ -598,9 +647,15 @@ void updateDisplay(){
 
   canvas16.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
 
-  float voltage = lipo.cellVoltage();
-  float percentage = lipo.cellPercent();
-  drawBatteryIndicator(voltage, percentage);
+
+  if(now - lastBatteryCheckTime > 1000){
+    lastBatteryCheckTime = now;
+    float lastBatteryVoltage = lipo.cellVoltage();
+    float lastBatteryPercentage = lipo.cellPercent();
+  }
+
+  drawBatteryIndicator(lastBatteryVoltage, lastBatteryPercentage);
+
 
   tft.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
 

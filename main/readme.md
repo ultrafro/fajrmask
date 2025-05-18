@@ -11,4 +11,4 @@ Todo:
 [x] light patterns
 [x] make alarm get triggered
 [x] display turns off after a while
-[ ] cool background
+[x] cool background
