@@ -95,6 +95,13 @@ void setup() {
 
   startTime = millis();  // Record the start time
 
+  // Setup pin 6 as output
+  pinMode(6, OUTPUT);
+
+  // Disable TFT I2C power and NeoPixel power
+  pinMode(NEOPIXEL_POWER, OUTPUT);
+  digitalWrite(NEOPIXEL_POWER, LOW);
+
   if (! ledmatrix.begin()) {
     Serial.println("IS31 not found");
     while (1);
@@ -138,6 +145,16 @@ void setup() {
 }
 
 void loop() {
+  static unsigned long lastBlinkTime = 0;
+  static bool ledState = false;
+  unsigned long currentTime = millis();
+
+  // Blink LED on pin 6 every 500ms
+  if (currentTime - lastBlinkTime >= 500) {
+    ledState = !ledState;
+    digitalWrite(6, ledState);
+    lastBlinkTime = currentTime;
+  }
 
   bool shouldUpdateDisplay = false;
 
@@ -186,8 +203,8 @@ void loop() {
   }
 
   if(isAsleep){
-    //sleep for 200ms
-    delay(200);
+    //sleep for 50ms
+    delay(50);
     return;
   }
 
@@ -334,14 +351,25 @@ void GoToSleep(){
   pinMode(TFT_BACKLITE, OUTPUT);
   digitalWrite(TFT_BACKLITE, LOW);
 
+  delay(50);
+
+  //turn off the TFT / I2C power supply
+  digitalWrite(TFT_I2C_POWER, LOW);
+
   ShutOffLights();
 }
 
 void WakeUp(){
 
+    //turn on the TFT / I2C power supply
+  digitalWrite(TFT_I2C_POWER, HIGH);
+  delay(50);
+
   //turn on backlight
   pinMode(TFT_BACKLITE, OUTPUT);
   digitalWrite(TFT_BACKLITE, HIGH);
+
+
 }
 
 void HandleAlarm(){
@@ -648,11 +676,34 @@ void updateDisplay(){
   canvas16.drawRGBBitmap(0, 0, canvas16.getBuffer(), canvas16.width(), canvas16.height());
 
 
-  if(now - lastBatteryCheckTime > 1000){
-    lastBatteryCheckTime = now;
-    float lastBatteryVoltage = lipo.cellVoltage();
-    float lastBatteryPercentage = lipo.cellPercent();
-  }
+
+    
+
+
+
+    if(now - lastBatteryCheckTime > 1000){
+
+
+      lipo.wake();
+      delay(100);
+      lipo.quickStart();
+      delay(100);
+
+      lastBatteryVoltage = lipo.cellVoltage();
+      lastBatteryPercentage = lipo.cellPercent();
+
+      lastBatteryCheckTime = now;
+
+      // Serial.println(lastBatteryVoltage);
+      // Serial.println(lastBatteryPercentage);
+
+      // Serial.print(F("(Dis)Charge rate : ")); Serial.print(lipo.chargeRate(), 1); Serial.println(" %/hr");
+
+
+      // if (lipo.isHibernating()) {
+      //   Serial.println(F("Hibernating!"));
+      // }
+    }
 
   drawBatteryIndicator(lastBatteryVoltage, lastBatteryPercentage);
 
