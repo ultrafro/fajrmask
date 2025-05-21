@@ -10,7 +10,7 @@
 // If you're using the full breakout...
 //Adafruit_IS31FL3731 ledmatrix = Adafruit_IS31FL3731();
 // If you're using the FeatherWing version
-Adafruit_IS31FL3731_Wing ledmatrix = Adafruit_IS31FL3731_Wing();
+//Adafruit_IS31FL3731_Wing ledmatrix = Adafruit_IS31FL3731_Wing();
 
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
@@ -102,11 +102,6 @@ void setup() {
   pinMode(NEOPIXEL_POWER, OUTPUT);
   digitalWrite(NEOPIXEL_POWER, LOW);
 
-  if (! ledmatrix.begin()) {
-    Serial.println("IS31 not found");
-    while (1);
-  }
-  Serial.println("IS31 found!");
 
   if (!lipo.begin()) {
     Serial.println(F("Couldnt find Adafruit MAX17048?\nMake sure a battery is plugged in!"));
@@ -145,16 +140,16 @@ void setup() {
 }
 
 void loop() {
-  static unsigned long lastBlinkTime = 0;
-  static bool ledState = false;
+  // static unsigned long lastBlinkTime = 0;
+  // static bool ledState = false;
   unsigned long currentTime = millis();
 
-  // Blink LED on pin 6 every 500ms
-  if (currentTime - lastBlinkTime >= 500) {
-    ledState = !ledState;
-    digitalWrite(6, ledState);
-    lastBlinkTime = currentTime;
-  }
+  // // Blink LED on pin 6 every 500ms
+  // if (currentTime - lastBlinkTime >= 500) {
+  //   ledState = !ledState;
+  //   digitalWrite(6, ledState);
+  //   lastBlinkTime = currentTime;
+  // }
 
   bool shouldUpdateDisplay = false;
 
@@ -442,21 +437,27 @@ void UpdateLights(){
 
   int lightValue = (int)(value * 255);
 
-  for (uint8_t x=0; x<16; x++) {
-    for (uint8_t y=0; y<9; y++) {
-      ledmatrix.drawPixel(x, y, lightValue);
-    }
-  }
+  //pwm pin 6 according to lightValue
+  analogWrite(6, lightValue);
+
+  // for (uint8_t x=0; x<16; x++) {
+  //   for (uint8_t y=0; y<9; y++) {
+  //     ledmatrix.drawPixel(x, y, lightValue);
+  //   }
+  // }
 
 }
 
 void ShutOffLights(){
-  int i = 0;
-  for (uint8_t x=0; x<16; x++) {
-    for (uint8_t y=0; y<9; y++) {
-      ledmatrix.drawPixel(x, y, 0);
-    }
-  }
+
+  analogWrite(6, 0);
+
+  // int i = 0;
+  // for (uint8_t x=0; x<16; x++) {
+  //   for (uint8_t y=0; y<9; y++) {
+  //     ledmatrix.drawPixel(x, y, 0);
+  //   }
+  // }
 
 
 }
